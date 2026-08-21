@@ -1,6 +1,8 @@
 // This file runs on Vercel's server, NEVER in the browser.
 // Same pattern as api/generate.js — the API key stays server-side.
 
+import { jsonrepair } from 'jsonrepair';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -130,7 +132,20 @@ Rules:
     const clean = rawText.replace(/```json|```/g, '').trim();
     const jsonMatch = clean.match(/\{[\s\S]*\}/);
     const jsonText = jsonMatch ? jsonMatch[0] : clean;
-    const parsed = JSON.parse(jsonText);
+
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch (parseErr) {
+      try {
+        parsed = JSON.parse(jsonrepair(jsonText));
+      } catch (repairErr) {
+        console.error('Raw model output that failed to parse:', jsonText);
+        const err = new Error('The AI\'s response wasn\'t valid JSON, even after auto-repair — please hit Generate again.');
+        err.friendly = true;
+        throw err;
+      }
+    }
     parsed.template = tpl;
     return res.status(200).json(parsed);
   } catch (err) {
