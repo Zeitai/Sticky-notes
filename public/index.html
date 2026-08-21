@@ -198,12 +198,30 @@ genBtn.addEventListener('click', async () => {
 exportBtn.addEventListener('click', async () => {
   statusEl.textContent = 'Rendering image...';
   const wrap = document.querySelector('.board-wrap');
-  const canvas = await html2canvas(wrap, { backgroundColor: '#faf6ef', scale: 2 });
-  const link = document.createElement('a');
-  link.download = 'study-notes.png';
-  link.href = canvas.toDataURL('image/png');
-  link.click();
-  statusEl.textContent = 'Image downloaded.';
+  // Force html2canvas to lay the board out as if on a wide desktop screen,
+  // so mobile exports get the same multi-column grid as desktop instead of
+  // collapsing to one narrow column per note (which produced a very tall,
+  // thin strip image on phones).
+  const DESKTOP_WIDTH = 1600;
+  try {
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready; // make sure the Kalam font is loaded before capture
+    }
+    const canvas = await html2canvas(wrap, {
+      backgroundColor: '#faf6ef',
+      scale: 2,
+      windowWidth: DESKTOP_WIDTH,
+      width: DESKTOP_WIDTH
+    });
+    const link = document.createElement('a');
+    link.download = 'study-notes.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    statusEl.textContent = 'Image downloaded.';
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = 'Could not render image: ' + err.message;
+  }
 });
 
 document.getElementById('year').textContent = new Date().getFullYear();
