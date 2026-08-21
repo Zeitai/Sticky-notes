@@ -60,7 +60,7 @@ Keep each bullet under 14 words. Keep titles under 4 words. Exactly ${count} not
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: 'openai/gpt-oss-120b',
           messages: [{ role: 'user', content: prompt }],
           max_tokens: 2000,
           temperature: 0.7
@@ -72,7 +72,9 @@ Keep each bullet under 14 words. Keep titles under 4 words. Exactly ${count} not
     }
 
     const clean = rawText.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(clean);
+    const jsonMatch = clean.match(/\{[\s\S]*\}/);
+    const jsonText = jsonMatch ? jsonMatch[0] : clean;
+    const parsed = JSON.parse(jsonText);
     return res.status(200).json(parsed);
   } catch (err) {
     console.error(err);
