@@ -1,6 +1,8 @@
 // This file runs on Vercel's server, NEVER in the browser.
 // Your API key stays here, read from an environment variable — it is never sent to the visitor.
 
+import { jsonrepair } from 'jsonrepair';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -43,8 +45,8 @@ Keep each bullet under 14 words. Keep titles under 4 words. Exactly ${count} not
       body: JSON.stringify({
         model: 'openai/gpt-oss-20b', // lighter model, more free-tier headroom than 120b
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 3000,
-        temperature: 0.6
+        max_tokens: 1800,
+        temperature: 0.7
       })
     });
     const data = await r.json();
@@ -92,26 +94,26 @@ Keep each bullet under 14 words. Keep titles under 4 words. Exactly ${count} not
       rawText = data.choices[0].message.content;
     }
 
-    function tryParse(text) {
-      const clean = text.replace(/```json|```/g, '').trim();
-      const jsonMatch = clean.match(/\{[\s\S]*\}/);
-      const jsonText = jsonMatch ? jsonMatch[0] : clean;
-      return JSON.parse(jsonText);
-    }
+    const clean = rawText.replace(/```json|```/g, '').trim();
+    const jsonMatch = clean.match(/\{[\s\S]*\}/);
+    const jsonText = jsonMatch ? jsonMatch[0] : clean;
 
     let parsed;
     try {
-      parsed = tryParse(rawText);
+      parsed = JSON.parse(jsonText);
     } catch (parseErr) {
-      // One retry: the model occasionally clips output mid-array. Ask again fresh.
-      if (provider !== 'huggingface') {
-        const retryData = await callGroq();
-        parsed = tryParse(retryData.choices[0].message.content);
-      } else {
-        throw parseErr;
+      // The model occasionally hand-writes near-valid JSON (a missing comma
+      // between array items, a stray unescaped quote, a trailing comma).
+      // jsonrepair fixes these common slip-ups before we give up entirely.
+      try {
+        parsed = JSON.parse(jsonrepair(jsonText));
+      } catch (repairErr) {
+        console.error('Raw model output that failed to parse:', jsonText);
+        const err = new Error('The AI\'s response wasn\'t valid JSON, even after auto-repair — please hit Generate again.');
+        err.friendly = true;
+        throw err;
       }
     }
-
     return res.status(200).json(parsed);
   } catch (err) {
     console.error(err);
