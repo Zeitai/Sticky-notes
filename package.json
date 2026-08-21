@@ -4,5 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "vercel dev"
+  },
+  "dependencies": {
+    "jsonrepair": "^3.8.0"
   }
 }
