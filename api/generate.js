@@ -31,6 +31,42 @@ Keep each bullet under 14 words. Keep titles under 4 words. Exactly ${count} not
 
   const provider = process.env.PROVIDER || 'groq'; // 'groq' (free) or 'huggingface' (free, fallback)
 
+  // Calls Groq with automatic retry on rate-limit (429) responses, honoring
+  // the wait time Groq reports in its own error message.
+  async function callGroq(retriesLeft = 2) {
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'openai/gpt-oss-20b', // lighter model, more free-tier headroom than 120b
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 1800,
+        temperature: 0.7
+      })
+    });
+    const data = await r.json();
+
+    if (!r.ok) {
+      const code = data?.error?.code;
+      if (code === 'rate_limit_exceeded' && retriesLeft > 0) {
+        const match = /try again in ([0-9.]+)s/i.exec(data?.error?.message || '');
+        const waitMs = match ? Math.ceil(parseFloat(match[1]) * 1000) + 300 : 2500;
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        return callGroq(retriesLeft - 1);
+      }
+      if (code === 'rate_limit_exceeded') {
+        const err = new Error('Groq\'s free tier is briefly rate-limited — please wait a few seconds and hit Generate again.');
+        err.friendly = true;
+        throw err;
+      }
+      throw new Error(data?.error?.message || 'Groq request failed');
+    }
+    return data;
+  }
+
   try {
     let rawText;
 
@@ -52,22 +88,7 @@ Keep each bullet under 14 words. Keep titles under 4 words. Exactly ${count} not
       if (!r.ok) throw new Error(JSON.stringify(data));
       rawText = data.choices[0].message.content;
     } else {
-      // Groq — genuinely free tier, no billing card required. console.groq.com
-      const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'openai/gpt-oss-120b',
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 2000,
-          temperature: 0.7
-        })
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(JSON.stringify(data));
+      const data = await callGroq();
       rawText = data.choices[0].message.content;
     }
 
@@ -78,6 +99,9 @@ Keep each bullet under 14 words. Keep titles under 4 words. Exactly ${count} not
     return res.status(200).json(parsed);
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: 'Generation failed', detail: String(err) });
+    return res.status(err.friendly ? 429 : 500).json({
+      error: err.friendly ? err.message : 'Generation failed',
+      detail: String(err)
+    });
   }
 }
