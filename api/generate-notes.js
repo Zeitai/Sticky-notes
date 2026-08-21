@@ -64,8 +64,9 @@ Respond with ONLY raw JSON (no markdown fences, no commentary), matching this sh
 }
 Rules:
 - Produce 8 to 14 rows covering the full span of the topic in chronological/logical order.
-- "timeline" should have exactly one entry per row, same order, short label + short period.
-- sidebar.items should have 5 to 8 short points, general takeaways about the whole topic (not entity-specific).
+- "timeline" is REQUIRED and must NOT be an empty array — include exactly one entry per row, same order, short label + short period.
+- "sidebar.items" is REQUIRED and must NOT be an empty array — include 5 to 8 short points, general takeaways about the whole topic (not entity-specific).
+- Every field in the shape above is required. Do not leave any array empty — if you are running low on space, shorten individual bullets rather than omitting whole fields.
 - Keep each bullet under 14 words.
 - Keep the ENTIRE response compact and within budget — do not pad content or add commentary.
 - Output valid JSON only, no trailing commentary.`;
@@ -112,6 +113,21 @@ Rules:
         const err = new Error('Groq\'s free tier is briefly rate-limited — please wait a few seconds and hit Generate again.');
         err.friendly = true;
         throw err;
+      }
+      // Groq's response_format:"json_object" mode validates the model's
+      // output server-side. When validation fails, Groq does NOT return
+      // normal `choices` content — it returns this error instead, but still
+      // includes the raw (malformed) text it generated under
+      // `error.failed_generation`. Recover that text and feed it through our
+      // normal parse/repair pipeline rather than giving up immediately.
+      if (code === 'json_validate_failed' && data?.error?.failed_generation) {
+        console.error('Groq json_validate_failed — recovered failed_generation for repair attempt.');
+        return {
+          choices: [{
+            message: { content: data.error.failed_generation },
+            finish_reason: 'stop'
+          }]
+        };
       }
       throw new Error(data?.error?.message || 'Groq request failed');
     }
@@ -173,14 +189,77 @@ Rules:
       }
     }
 
-    // Guard against a parsed-but-malformed shape so the frontend doesn't
-    // crash trying to render undefined sections/rows.
-    const shapeOk = tpl === 'table'
-      ? Array.isArray(parsed?.rows) && parsed.rows.length > 0
-      : Array.isArray(parsed?.sections) && parsed.sections.length > 0;
-    if (!parsed || !shapeOk) {
-      console.error('Parsed JSON missing expected content for template', tpl, ':', parsed);
-      const err = new Error('The AI\'s response was missing content — please hit Generate again.');
+    // Guard against a parsed-but-malformed/incomplete shape so the frontend
+    // doesn't silently render empty panels. The model can return technically
+    // valid JSON that still skips required parts (e.g. rows filled in but
+    // sidebar.items or timeline left empty) — this must be checked field by
+    // field, not just "did JSON.parse succeed".
+    function findIncompleteParts(p) {
+      const problems = [];
+      if (tpl === 'table') {
+        if (!Array.isArray(p?.rows) || p.rows.length === 0) problems.push('rows');
+        if (!Array.isArray(p?.sidebar?.items) || p.sidebar.items.length === 0) problems.push('sidebar.items');
+        if (!Array.isArray(p?.timeline) || p.timeline.length === 0) problems.push('timeline');
+      } else {
+        if (!Array.isArray(p?.sections) || p.sections.length === 0) {
+          problems.push('sections');
+        } else {
+          p.sections.forEach((s, i) => {
+            const empty =
+              (s.type === 'bullets' && (!Array.isArray(s.bullets) || s.bullets.length === 0)) ||
+              (s.type === 'table' && (!Array.isArray(s.rows) || s.rows.length === 0)) ||
+              (s.type === 'numbered' && (!Array.isArray(s.items) || s.items.length === 0)) ||
+              (s.type === 'diagram3' && (!Array.isArray(s.nodes) || s.nodes.length === 0));
+            if (empty) problems.push(`sections[${i}] (${s.title || 'untitled'})`);
+          });
+        }
+      }
+      return problems;
+    }
+
+    let problems = findIncompleteParts(parsed);
+
+    // If some parts came back empty, the model likely rushed the tail end of
+    // its response. Auto-fill what can be safely derived from other fields...
+    if (tpl === 'table' && (!Array.isArray(parsed?.timeline) || parsed.timeline.length === 0) && Array.isArray(parsed?.rows)) {
+      parsed.timeline = parsed.rows.map((r) => ({ label: r.name, period: r.period }));
+      problems = problems.filter((p) => p !== 'timeline');
+    }
+
+    // ...and if genuinely required content is still missing (can't be
+    // derived, e.g. sidebar takeaways or whole sections), ask the model
+    // once more for a complete response before giving up.
+    if (problems.length > 0) {
+      console.error('First attempt incomplete, missing:', problems, '— retrying once. Parsed:', parsed);
+      const retryData = await callGroq();
+      const retryRawText = retryData.choices[0].message.content;
+      const retryFinishReason = retryData.choices[0].finish_reason;
+
+      if (retryFinishReason !== 'length') {
+        const retryClean = retryRawText.replace(/```json|```/g, '').trim();
+        const retryMatch = retryClean.match(/\{[\s\S]*\}/);
+        const retryJsonText = retryMatch ? retryMatch[0] : retryClean;
+        try {
+          const retryParsed = JSON.parse(retryJsonText);
+          const retryProblems = findIncompleteParts(retryParsed);
+          if (tpl === 'table' && (!Array.isArray(retryParsed?.timeline) || retryParsed.timeline.length === 0) && Array.isArray(retryParsed?.rows)) {
+            retryParsed.timeline = retryParsed.rows.map((r) => ({ label: r.name, period: r.period }));
+          }
+          // Use the retry if it's strictly more complete than the original.
+          if (retryProblems.length < problems.length) {
+            parsed = retryParsed;
+            problems = retryProblems.filter((p) => p !== 'timeline');
+          }
+        } catch (e) {
+          // Retry failed to parse — fall through and use whatever the first
+          // attempt had, flagged below.
+        }
+      }
+    }
+
+    if (problems.length > 0) {
+      console.error('Still incomplete after retry, missing:', problems, ':', parsed);
+      const err = new Error('The AI\'s response left out some sections (' + problems.join(', ') + ') — please hit Generate again.');
       err.friendly = true;
       throw err;
     }
