@@ -345,8 +345,8 @@ exportBtn.addEventListener('click', async () => {
       width: DESKTOP_WIDTH
     });
     const link = document.createElement('a');
-    link.download = 'complete-notes.png';
-    link.href = canvas.toDataURL('image/png');
+    link.download = 'complete-notes.jpg';
+    link.href = canvas.toDataURL('image/jpeg', 0.92);
     link.click();
     statusEl.textContent = 'Image downloaded.';
   } catch (err) {
