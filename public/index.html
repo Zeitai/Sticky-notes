@@ -148,7 +148,7 @@ async function callBackend(topic, count, context){
     body: JSON.stringify({ topic, count, context })
   });
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Request failed');
+  if (!response.ok) throw new Error(data.detail || data.error || 'Request failed');
   return data;
 }
 
