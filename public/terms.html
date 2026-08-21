@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terms of Service — Study Sticky-Note Generator</title>
+<style>
+  body{ font-family:sans-serif; max-width:760px; margin:0 auto; padding:40px 20px 80px 20px; color:#2b2b2b; line-height:1.6; }
+  h1{ font-size:1.6rem; }
+  h2{ font-size:1.1rem; margin-top:32px; }
+  a{ color:#4f9bd1; }
+  .back{ display:inline-block; margin-bottom:24px; font-size:0.9rem; }
+  .updated{ color:#888; font-size:0.85rem; }
+</style>
+</head>
+<body>
+  <a class="back" href="/">← Back to the app</a>
+  <h1>Terms of Service</h1>
+  <p class="updated">Last updated: <span id="d"></span></p>
+
+  <p>By using the Study Sticky-Note Generator (the "Service"), provided by Avate Labs at <a href="https://avateai.online">avateai.online</a>, you agree to these Terms.</p>
+
+  <h2>The Service</h2>
+  <p>The Service generates AI-written study notes based on the topic and preferences you enter. Content is produced by third-party AI models and may occasionally be incomplete, outdated, or contain errors. Always verify important facts against your own syllabus or textbook before relying on them for exams.</p>
+
+  <h2>Acceptable use</h2>
+  <p>Don't use the Service to generate content that is illegal, harmful, or infringes on others' rights. We may restrict or block access for misuse.</p>
+
+  <h2>No warranty</h2>
+  <p>The Service is provided "as is," without warranties of any kind, express or implied. We do not guarantee the accuracy, completeness, or exam-relevance of any generated content.</p>
+
+  <h2>Limitation of liability</h2>
+  <p>To the maximum extent permitted by law, Avate Labs is not liable for any damages arising from your use of, or inability to use, the Service, including reliance on generated content for exams or academic decisions.</p>
+
+  <h2>Third-party services</h2>
+  <p>The Service relies on third-party AI providers (such as Groq and/or Hugging Face) to generate content. Their own terms and availability apply to that processing, and outages on their end may affect the Service.</p>
+
+  <h2>Changes</h2>
+  <p>We may update these Terms from time to time. Continued use of the Service after changes are posted means you accept the updated Terms.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about these Terms can be directed to Avate Labs via <a href="https://avateai.online">avateai.online</a>.</p>
+
+  <script>document.getElementById('d').textContent = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});</script>
+</body>
+</html>

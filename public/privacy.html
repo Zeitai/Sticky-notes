@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — Study Sticky-Note Generator</title>
+<style>
+  body{ font-family:sans-serif; max-width:760px; margin:0 auto; padding:40px 20px 80px 20px; color:#2b2b2b; line-height:1.6; }
+  h1{ font-size:1.6rem; }
+  h2{ font-size:1.1rem; margin-top:32px; }
+  a{ color:#4f9bd1; }
+  .back{ display:inline-block; margin-bottom:24px; font-size:0.9rem; }
+  .updated{ color:#888; font-size:0.85rem; }
+</style>
+</head>
+<body>
+  <a class="back" href="/">← Back to the app</a>
+  <h1>Privacy Policy</h1>
+  <p class="updated">Last updated: <span id="d"></span></p>
+
+  <p>This Privacy Policy explains how Avate Labs ("we", "us") handles information when you use the Study Sticky-Note Generator (the "Service"), available at <a href="https://avateai.online">avateai.online</a>.</p>
+
+  <h2>What we collect</h2>
+  <p>When you type a topic, note count, or exam/perspective into the Service, that text is sent to our server and forwarded to a third-party AI provider (Groq, and optionally Hugging Face) to generate your study notes. We do not require you to create an account, and we do not ask for your name, email, or other personal details to use the Service.</p>
+
+  <h2>How your inputs are used</h2>
+  <p>Your topic and settings are used only to generate the notes shown to you. We do not sell this information. We do not permanently store the content of your requests on our own servers beyond what is needed to process and return the response, and any temporary logs (e.g. for debugging or abuse prevention) are kept only as long as reasonably necessary.</p>
+
+  <h2>Third-party AI providers</h2>
+  <p>Requests are processed by Groq and/or Hugging Face's inference services under their own privacy and data-handling terms. Please refer to <a href="https://groq.com/privacy-policy/" target="_blank" rel="noopener">Groq's Privacy Policy</a> and <a href="https://huggingface.co/privacy" target="_blank" rel="noopener">Hugging Face's Privacy Policy</a> for details on how they handle data sent to their APIs.</p>
+
+  <h2>Cookies and analytics</h2>
+  <p>The Service does not set tracking cookies by default. If we add analytics in the future (e.g. to understand usage), we will update this policy accordingly.</p>
+
+  <h2>Children's privacy</h2>
+  <p>The Service is intended for general study/revision use and is not directed at children under 13. We do not knowingly collect personal information from children.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>We may update this Privacy Policy from time to time. Continued use of the Service after changes are posted means you accept the updated policy.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this policy can be directed to Avate Labs via <a href="https://avateai.online">avateai.online</a>.</p>
+
+  <script>document.getElementById('d').textContent = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});</script>
+</body>
+</html>

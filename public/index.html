@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Study Sticky Notes Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --paper:#faf6ef;
+    --ink:#2b2b2b;
+    --yellow:#f6d24a; --yellow-d:#e0ab1f;
+    --pink:#f3a6c4;   --pink-d:#e06d9c;
+    --green:#b7dc8f;  --green-d:#7fb84f;
+    --blue:#8fc9ea;   --blue-d:#4f9bd1;
+    --purple:#c9aee3; --purple-d:#9a6fc4;
+    --orange:#f4b96a; --orange-d:#e08c2c;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    background-image: radial-gradient(#e5ddca 1px, transparent 1px);
+    background-size: 18px 18px;
+    font-family:'Kalam',cursive;
+    color:var(--ink);
+    padding:24px;
+  }
+  .controls{
+    max-width:900px;
+    margin:0 auto 28px auto;
+    background:#fff;
+    border-radius:14px;
+    padding:20px 24px;
+    box-shadow:0 4px 14px rgba(0,0,0,0.08);
+  }
+  .controls h1{ font-size:1.5rem; margin:0 0 4px 0; }
+  .controls p.sub{ margin:0 0 16px 0; color:#666; font-family:sans-serif; font-size:0.9rem; }
+  .row{ display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
+  .field{flex:1; min-width:220px;}
+  label{ display:block; font-family:sans-serif; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:#888; margin-bottom:4px; }
+  input[type=text], select{ width:100%; padding:10px 12px; border-radius:8px; border:1.5px solid #ddd; font-family:sans-serif; font-size:0.95rem; }
+  button{ background:#2b2b2b; color:#fff; border:none; padding:11px 20px; border-radius:8px; font-family:sans-serif; font-weight:600; font-size:0.9rem; cursor:pointer; white-space:nowrap; }
+  button:disabled{opacity:0.5; cursor:default;}
+  button.secondary{ background:#fff; color:#2b2b2b; border:1.5px solid #2b2b2b; }
+  .status{ font-family:sans-serif; font-size:0.85rem; color:#888; margin-top:10px; min-height:18px; }
+  .board-wrap{max-width:1560px; margin:0 auto;}
+  #board{ display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:26px; padding:10px; }
+  .note{ position:relative; border-radius:4px; padding:22px 20px 20px 20px; box-shadow:3px 5px 10px rgba(0,0,0,0.18); transform:rotate(var(--tilt)); min-height:200px; }
+  .note:nth-child(6n+1){ background:var(--yellow); --pin:var(--yellow-d);}
+  .note:nth-child(6n+2){ background:var(--pink);   --pin:var(--pink-d);}
+  .note:nth-child(6n+3){ background:var(--green);  --pin:var(--green-d);}
+  .note:nth-child(6n+4){ background:var(--blue);   --pin:var(--blue-d);}
+  .note:nth-child(6n+5){ background:var(--purple); --pin:var(--purple-d);}
+  .note:nth-child(6n+0){ background:var(--orange); --pin:var(--orange-d);}
+  .pin{ position:absolute; top:-11px; left:50%; transform:translateX(-50%); width:20px; height:20px; border-radius:50%; background: radial-gradient(circle at 35% 30%, #fff8, transparent 40%), var(--pin); box-shadow:0 2px 3px rgba(0,0,0,0.35); }
+  .note h3{ margin:2px 0 10px 0; font-size:1.18rem; display:flex; gap:8px; align-items:center; text-decoration:underline; text-decoration-thickness:1.5px; text-underline-offset:3px; }
+  .note h3 .num{ background:#2b2b2b; color:#fff; border-radius:50%; width:22px; height:22px; min-width:22px; display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-family:sans-serif; text-decoration:none; }
+  .note ul{ margin:0; padding-left:18px; font-size:0.98rem; line-height:1.42; }
+  .note li{margin-bottom:5px;}
+  .note .icon{ position:absolute; bottom:10px; right:14px; font-size:1.4rem; opacity:0.75; }
+  .footer-note{ max-width:1560px; margin:24px auto 0 auto; background:#fff; border:2px dashed #ccc; border-radius:10px; padding:14px 20px; font-family:sans-serif; font-size:0.85rem; color:#555; }
+  .empty{ text-align:center; color:#999; font-family:sans-serif; padding:60px 20px; }
+  .site-footer{
+    max-width:1560px;
+    margin:32px auto 0 auto;
+    padding:18px 10px 40px 10px;
+    display:flex;
+    gap:22px;
+    flex-wrap:wrap;
+    align-items:center;
+    font-family:sans-serif;
+    font-size:0.82rem;
+    color:#888;
+    border-top:1px solid #e5ddca;
+  }
+  .site-footer a{
+    color:#555;
+    text-decoration:none;
+    font-weight:600;
+  }
+  .site-footer a:hover{ text-decoration:underline; color:#2b2b2b; }
+  .site-footer a:first-child{ color:#2b2b2b; }
+</style>
+</head>
+<body>
+
+  <div class="controls">
+    <h1>📌 Study Sticky-Note Generator</h1>
+    <p class="sub">Type any chapter or topic. It lays out the key points as a sticky-note board — free, no image-generation model needed.</p>
+    <div class="row">
+      <div class="field">
+        <label>Chapter / Topic</label>
+        <input type="text" id="topicInput" placeholder="e.g. The French Revolution, Photosynthesis, Mughal Empire..." value="Pala Dynasty of Bengal">
+      </div>
+      <div class="field" style="max-width:160px;">
+        <label>Number of notes</label>
+        <select id="countSelect">
+          <option value="10">10</option>
+          <option value="15" selected>15</option>
+          <option value="20">20</option>
+        </select>
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px;">
+      <div class="field">
+        <label>Exam / Perspective <span style="text-transform:none; color:#aaa;">(optional)</span></label>
+        <input type="text" id="contextInput" placeholder="e.g. UGC NET JRF, UPSC, Class 10 board exam, quick general revision..." value="UGC NET JRF">
+      </div>
+      <button id="genBtn">Generate</button>
+      <button id="exportBtn" class="secondary" disabled>Download as image</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="board-wrap">
+    <div id="board">
+      <div class="empty">Enter a topic above and hit Generate to build the board.</div>
+    </div>
+    <div class="footer-note" id="footerNote" style="display:none;"></div>
+  </div>
+
+  <footer class="site-footer">
+    <a href="https://avateai.online" target="_blank" rel="noopener">Avate Labs</a>
+    <span>© <span id="year"></span> Avate Labs. All rights reserved.</span>
+    <a href="/privacy.html">Privacy Policy</a>
+    <a href="/terms.html">Terms of Service</a>
+  </footer>
+
+<script>
+const genBtn = document.getElementById('genBtn');
+const exportBtn = document.getElementById('exportBtn');
+const board = document.getElementById('board');
+const statusEl = document.getElementById('status');
+const footerNote = document.getElementById('footerNote');
+const ICONS = ['📜','👑','🏛️','⚔️','🗺️','🕉️','☸️','📖','🏺','🪙','🌾','⛵','📉','✖️','⭐','🎓','🧭','🔔','🖋️','🌸'];
+
+function tiltFor(i){
+  const tilts = [-1.5,1.2,-0.8,1.6,-1.2,0.9];
+  return tilts[i % tilts.length] + 'deg';
+}
+
+async function callBackend(topic, count, context){
+  const response = await fetch('/api/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ topic, count, context })
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+function render(data){
+  board.innerHTML = '';
+  data.notes.forEach((n, i) => {
+    const note = document.createElement('div');
+    note.className = 'note';
+    note.style.setProperty('--tilt', tiltFor(i));
+    const bullets = n.bullets.map(b => `<li>${b}</li>`).join('');
+    note.innerHTML = `
+      <div class="pin"></div>
+      <h3><span class="num">${i+1}</span> ${n.title}</h3>
+      <ul>${bullets}</ul>
+      <span class="icon">${ICONS[i % ICONS.length]}</span>
+    `;
+    board.appendChild(note);
+  });
+  const context = document.getElementById('contextInput').value.trim();
+  const tipLabel = context ? `Exam Tip (${context})` : 'Exam Tip';
+  footerNote.style.display = 'block';
+  footerNote.innerHTML = `💡 <b>${tipLabel}:</b> ${data.footer}`;
+  exportBtn.disabled = false;
+}
+
+genBtn.addEventListener('click', async () => {
+  const topic = document.getElementById('topicInput').value.trim();
+  const count = parseInt(document.getElementById('countSelect').value, 10);
+  const context = document.getElementById('contextInput').value.trim();
+  if(!topic){ statusEl.textContent = 'Please enter a topic first.'; return; }
+  genBtn.disabled = true;
+  exportBtn.disabled = true;
+  statusEl.textContent = 'Generating notes for "' + topic + '"...';
+  board.innerHTML = '<div class="empty">Working on it…</div>';
+  try{
+    const data = await callBackend(topic, count, context);
+    render(data);
+    statusEl.textContent = 'Done. You can regenerate or download as an image.';
+  }catch(err){
+    console.error(err);
+    statusEl.textContent = 'Something went wrong: ' + err.message;
+    board.innerHTML = '<div class="empty">Generation failed — try again.</div>';
+  }
+  genBtn.disabled = false;
+});
+
+exportBtn.addEventListener('click', async () => {
+  statusEl.textContent = 'Rendering image...';
+  const wrap = document.querySelector('.board-wrap');
+  const canvas = await html2canvas(wrap, { backgroundColor: '#faf6ef', scale: 2 });
+  const link = document.createElement('a');
+  link.download = 'study-notes.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+  statusEl.textContent = 'Image downloaded.';
+});
+
+document.getElementById('year').textContent = new Date().getFullYear();
+</script>
+</body>
+</html>
