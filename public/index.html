@@ -27,6 +27,9 @@
     color:var(--ink);
     padding:24px;
   }
+  .site-nav{ max-width:900px; margin:0 auto 14px auto; display:flex; gap:16px; font-family:sans-serif; font-size:0.85rem; }
+  .site-nav a{ color:#555; text-decoration:none; font-weight:600; padding:5px 10px; border-radius:6px; }
+  .site-nav a.active{ background:#2b2b2b; color:#fff; }
   .controls{
     max-width:900px;
     margin:0 auto 28px auto;
@@ -145,6 +148,11 @@
       <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.6"/>
     </filter>
   </svg>
+
+  <nav class="site-nav">
+    <a href="/" class="active">📌 Sticky Notes</a>
+    <a href="/notes.html">📝 Complete Notes</a>
+  </nav>
 
   <div class="controls">
     <h1>📌 Study Sticky-Note Generator</h1>
