@@ -2,6 +2,9 @@
   "functions": {
     "api/generate.js": {
       "maxDuration": 30
+    },
+    "api/generate-notes.js": {
+      "maxDuration": 30
     }
   }
 }
