@@ -74,6 +74,21 @@ Keep each bullet under 14 words. Keep titles under 4 words. Exactly ${count} not
         err.friendly = true;
         throw err;
       }
+      // Groq's response_format:"json_object" mode validates the model's
+      // output server-side. When validation fails, Groq does NOT return
+      // normal `choices` content — it returns this error instead, but still
+      // includes the raw (malformed) text it generated under
+      // `error.failed_generation`. Recover that text and feed it through our
+      // normal parse/repair pipeline rather than giving up immediately.
+      if (code === 'json_validate_failed' && data?.error?.failed_generation) {
+        console.error('Groq json_validate_failed — recovered failed_generation for repair attempt.');
+        return {
+          choices: [{
+            message: { content: data.error.failed_generation },
+            finish_reason: 'stop'
+          }]
+        };
+      }
       throw new Error(data?.error?.message || 'Groq request failed');
     }
     return data;
