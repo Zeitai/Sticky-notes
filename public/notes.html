@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Complete Notes Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --paper:#faf6ef;
+    --ink:#2b2b2b;
+    --yellow:#f6d24a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    background-image: radial-gradient(#e5ddca 1px, transparent 1px);
+    background-size: 18px 18px;
+    font-family:'Kalam',cursive;
+    color:var(--ink);
+    padding:24px;
+  }
+  .site-nav{ max-width:900px; margin:0 auto 14px auto; display:flex; gap:16px; font-family:sans-serif; font-size:0.85rem; }
+  .site-nav a{ color:#555; text-decoration:none; font-weight:600; padding:5px 10px; border-radius:6px; }
+  .site-nav a.active{ background:#2b2b2b; color:#fff; }
+  .controls{
+    max-width:900px;
+    margin:0 auto 28px auto;
+    background:#fff;
+    border-radius:14px;
+    padding:20px 24px;
+    box-shadow:0 4px 14px rgba(0,0,0,0.08);
+  }
+  .controls h1{ font-size:1.5rem; margin:0 0 4px 0; }
+  .controls p.sub{ margin:0 0 16px 0; color:#666; font-family:sans-serif; font-size:0.9rem; }
+  .row{ display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
+  .field{flex:1; min-width:220px;}
+  label{ display:block; font-family:sans-serif; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:#888; margin-bottom:4px; }
+  input[type=text]{ width:100%; padding:10px 12px; border-radius:8px; border:1.5px solid #ddd; font-family:sans-serif; font-size:0.95rem; }
+  button{ background:#2b2b2b; color:#fff; border:none; padding:11px 20px; border-radius:8px; font-family:sans-serif; font-weight:600; font-size:0.9rem; cursor:pointer; white-space:nowrap; }
+  button:disabled{opacity:0.5; cursor:default;}
+  button.secondary{ background:#fff; color:#2b2b2b; border:1.5px solid #2b2b2b; }
+  .status{ font-family:sans-serif; font-size:0.85rem; color:#888; margin-top:10px; min-height:18px; }
+
+  .tpl-toggle{ display:flex; gap:8px; }
+  .tpl-btn{ flex:1; padding:12px; border-radius:10px; border:2px solid #ddd; background:#fff; cursor:pointer; text-align:left; font-family:sans-serif; }
+  .tpl-btn strong{ display:block; font-size:0.88rem; color:#2b2b2b; }
+  .tpl-btn span{ display:block; font-size:0.76rem; color:#888; margin-top:2px; }
+  .tpl-btn.active{ border-color:#2b2b2b; background:#fdf9ee; }
+
+  .page-wrap{ max-width:1400px; margin:0 auto; }
+  .empty{ text-align:center; color:#999; font-family:sans-serif; padding:60px 20px; }
+
+  /* ---------- shared notebook-page chrome ---------- */
+  .sheet{ background:#fffdf8; border-radius:10px; padding:28px 30px 34px 30px; box-shadow:0 6px 20px rgba(0,0,0,0.1); }
+  .page-header{ text-align:center; margin-bottom:22px; }
+  .page-header .title-row{ display:flex; align-items:center; justify-content:center; gap:14px; }
+  .page-header h1{ font-size:2rem; margin:0; letter-spacing:0.01em; }
+  .page-header .star{ width:26px; height:26px; color:#e0ab1f; filter:url(#sketchy); }
+  .underline-squiggle{ width:340px; max-width:80%; height:14px; margin:6px auto 10px auto; display:block; }
+  .page-header .period{ display:inline-block; margin-top:2px; padding:4px 14px; border:1.5px solid #2b2b2b; border-radius:16px; font-family:sans-serif; font-size:0.85rem; font-weight:600; }
+
+  .icon-sm{ width:26px; height:26px; display:inline-block; vertical-align:middle; filter:url(#sketchy); opacity:0.85; }
+
+  /* ---------- Template A: notebook multi-column ---------- */
+  .sections-wrap{ column-count:3; column-gap:22px; }
+  @media (max-width:1100px){ .sections-wrap{ column-count:2; } }
+  @media (max-width:680px){ .sections-wrap{ column-count:1; } }
+  .section-box{
+    break-inside:avoid; -webkit-column-break-inside:avoid;
+    border:2.4px solid var(--accent);
+    border-radius:10px;
+    padding:14px 16px 16px 16px;
+    margin:0 0 22px 0;
+    background:#fff;
+  }
+  .section-box h2{
+    margin:0 0 10px 0; font-size:1.02rem; color:var(--accent);
+    text-decoration:underline; text-underline-offset:3px; text-decoration-thickness:1.4px;
+    display:flex; gap:8px; align-items:center;
+  }
+  .section-box h2 .num{
+    background:var(--accent); color:#fff; border-radius:50%;
+    width:22px; height:22px; min-width:22px; display:flex; align-items:center; justify-content:center;
+    font-size:0.72rem; font-family:sans-serif; text-decoration:none;
+  }
+  .section-box ul{ margin:0; padding-left:18px; font-size:0.94rem; line-height:1.4; }
+  .section-box li{ margin-bottom:5px; }
+  .section-box ol{ margin:0; padding-left:20px; font-size:0.94rem; line-height:1.4; }
+  .section-box ol li{ margin-bottom:6px; }
+  .section-box ol b{ color:var(--accent); }
+  .mini-table{ width:100%; border-collapse:collapse; font-size:0.85rem; }
+  .mini-table th{ background:#f6f0df; border:1.2px solid #cbbf9a; padding:5px 7px; font-family:sans-serif; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.03em; }
+  .mini-table td{ border:1.2px solid #ddd4bb; padding:5px 7px; }
+
+  .diagram3{ display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:10px; }
+  .diagram3 .node{ flex:1; text-align:center; border:1.6px solid var(--accent); border-radius:8px; padding:6px 4px; font-size:0.82rem; font-weight:700; }
+  .diagram3 .arrow{ font-size:1rem; color:var(--accent); }
+
+  /* ---------- Template B: king/entity table ---------- */
+  .table-page{ display:grid; grid-template-columns:1fr 260px; gap:22px; }
+  @media (max-width:900px){ .table-page{ grid-template-columns:1fr; } }
+  .king-table{ width:100%; border-collapse:collapse; font-size:0.92rem; }
+  .king-table th{ background:var(--yellow); border:1.6px solid #2b2b2b; padding:10px; text-align:left; font-family:sans-serif; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.03em; }
+  .king-table td{ border:1.4px solid #ccc; padding:10px; vertical-align:top; }
+  .king-table td ul{ margin:0; padding-left:16px; }
+  .king-table td li{ margin-bottom:4px; }
+  .row-name{ display:flex; align-items:center; gap:8px; font-weight:700; }
+  .row-name .num{ border:1.6px solid var(--rowcolor); color:var(--rowcolor); border-radius:50%; width:22px; height:22px; min-width:22px; display:flex; align-items:center; justify-content:center; font-size:0.72rem; font-family:sans-serif; }
+  .row-name .rname{ color:var(--rowcolor); }
+  .row-period{ font-size:0.78rem; color:#777; font-family:sans-serif; margin-top:2px; }
+
+  .sidebar-box{ border:1.6px dashed #b8ab7c; border-radius:10px; padding:16px; background:#fffef6; height:fit-content; }
+  .sidebar-box h2{ margin:0 0 10px 0; font-size:1rem; }
+  .sidebar-box ul{ margin:0; padding-left:0; list-style:none; font-size:0.9rem; line-height:1.4; }
+  .sidebar-box li{ margin-bottom:10px; padding-left:20px; position:relative; }
+  .sidebar-box li::before{ content:"⇒"; position:absolute; left:0; color:#c9862a; }
+
+  .timeline-box{ grid-column:1 / -1; border:2px dashed #ccc; border-radius:10px; padding:16px 18px; background:#fff; }
+  .timeline-box .tl-title{ font-family:sans-serif; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:#888; margin-bottom:10px; }
+  .tl-row{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+  .tl-item{ display:flex; flex-direction:column; align-items:center; font-size:0.8rem; }
+  .tl-item .circ{ width:26px; height:26px; border-radius:50%; border:1.6px solid #2b2b2b; display:flex; align-items:center; justify-content:center; font-family:sans-serif; font-size:0.72rem; font-weight:700; }
+  .tl-item .lbl{ margin-top:4px; font-weight:700; }
+  .tl-item .per{ font-size:0.7rem; color:#888; font-family:sans-serif; }
+  .tl-arrow{ color:#aaa; padding:0 2px; }
+</style>
+</head>
+<body>
+
+  <svg width="0" height="0" style="position:absolute">
+    <filter id="sketchy" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="2" seed="7" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.2"/>
+    </filter>
+  </svg>
+
+  <nav class="site-nav">
+    <a href="/">📌 Sticky Notes</a>
+    <a href="/notes.html" class="active">📝 Complete Notes</a>
+  </nav>
+
+  <div class="controls">
+    <h1>📝 Complete Notes Generator</h1>
+    <p class="sub">Type a chapter or topic and get a full one-page revision sheet — pick the layout below.</p>
+    <div class="row">
+      <div class="field">
+        <label>Chapter / Topic</label>
+        <input type="text" id="topicInput" placeholder="e.g. The French Revolution, Mughal Empire..." value="Pala Dynasty of Bengal">
+      </div>
+      <div class="field">
+        <label>Exam / Perspective <span style="text-transform:none; color:#aaa;">(optional)</span></label>
+        <input type="text" id="contextInput" placeholder="e.g. UGC NET JRF, UPSC..." value="UGC NET JRF">
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px;">
+      <div class="tpl-toggle" style="flex:1;">
+        <div class="tpl-btn active" id="tplNotebook" data-tpl="notebook">
+          <strong>Notebook layout</strong>
+          <span>Numbered sections, mixed lists/tables/diagram</span>
+        </div>
+        <div class="tpl-btn" id="tplTable" data-tpl="table">
+          <strong>King/entity table</strong>
+          <span>Master table + sidebar + timeline</span>
+        </div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px;">
+      <button id="genBtn">Generate</button>
+      <button id="exportBtn" class="secondary" disabled>Download as image</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="page-wrap" id="pageWrap">
+    <div class="empty">Enter a topic above, pick a layout, and hit Generate.</div>
+  </div>
+
+<script>
+const genBtn = document.getElementById('genBtn');
+const exportBtn = document.getElementById('exportBtn');
+const pageWrap = document.getElementById('pageWrap');
+const statusEl = document.getElementById('status');
+let currentTpl = 'notebook';
+
+document.querySelectorAll('.tpl-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tpl-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentTpl = btn.dataset.tpl;
+  });
+});
+
+const ACCENTS = ['#c0392b','#2f6fb0','#3c8f4c','#a24fb0','#d98a24','#c23b74','#1f8a8a'];
+
+const DOODLES = [
+  `<path d="M4 18h16l-1-9-4 4-3-6-3 6-4-4-1 9Z"/><path d="M4 18h16v2H4z"/>`, // crown
+  `<path d="M4 20h16M5 20V9M9 20V9M15 20V9M19 20V9M3 9l9-5 9 5"/>`, // temple
+  `<path d="M6 18 17 7M17 7l2-2 1 1-2 2M6 18l-2 2M14 4l2 2M4 20l2-2"/>`, // sword
+  `<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.3"/>`, // map pin
+  `<path d="M12 20c-5-1-7-5-7-8 3 1 5 2 7 5 2-3 4-4 7-5 0 3-2 7-7 8Z"/><path d="M12 20V11"/>`, // lotus
+  `<circle cx="12" cy="6" r="2"/><path d="M6 18c1-4 3-6 6-6s5 2 6 6M8 18h8"/>`, // meditating figure
+  `<path d="M3 6c3-1.5 6-1.5 9 0v12c-3-1.5-6-1.5-9 0V6ZM21 6c-3-1.5-6-1.5-9 0v12c3-1.5 6-1.5 9 0V6Z"/>`, // book
+  `<ellipse cx="12" cy="6" rx="7" ry="2.4"/><path d="M5 6v6c0 1.3 3.1 2.4 7 2.4s7-1.1 7-2.4V6M5 12v6c0 1.3 3.1 2.4 7 2.4s7-1.1 7-2.4v-6"/>`, // coins
+  `<path d="M4 15h16l-2 5H6l-2-5Z"/><path d="M12 15V4M12 4l5 4M12 8 8 6"/>`, // boat
+  `<path d="M4 6l7 7 4-4 5 6"/><path d="M15 15h5v-5"/>`, // decline
+  `<path d="M12 3l2.6 5.8 6.4.6-4.8 4.3 1.4 6.3L12 16.9 6.4 20l1.4-6.3L3 9.4l6.4-.6L12 3Z"/>`, // star
+  `<path d="M2 9l10-4 10 4-10 4-10-4Z"/><path d="M6 11v4c0 1.5 3 3 6 3s6-1.5 6-3v-4M20 9v6"/>` // grad cap
+];
+function iconSvg(i, cls){
+  const d = DOODLES[i % DOODLES.length];
+  return `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+}
+const STAR = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.8 6.4.6-4.8 4.3 1.4 6.3L12 16.9 6.4 20l1.4-6.3L3 9.4l6.4-.6L12 3Z"/></svg>`;
+const SQUIGGLE = `<svg viewBox="0 0 340 14" class="underline-squiggle"><path d="M2 8c20-10 40-10 60 0s40 10 60 0 40-10 60 0 40 10 60 0 40-10 60 0" fill="none" stroke="#e0ab1f" stroke-width="3" stroke-linecap="round"/></svg>`;
+
+function esc(s){ return (s===undefined||s===null) ? '' : String(s); }
+
+function renderHeader(data){
+  const periodHtml = data.period ? `<div class="period">${esc(data.period)}</div>` : '';
+  return `
+    <div class="page-header">
+      <div class="title-row"><span class="star">${STAR}</span><h1>${esc(data.title)}</h1><span class="star">${STAR}</span></div>
+      ${SQUIGGLE}
+      <div style="font-family:sans-serif; font-size:0.95rem; color:#666; margin-bottom:6px;">${esc(data.subtitle)}</div>
+      ${periodHtml}
+    </div>`;
+}
+
+function renderNotebook(data){
+  let iconCounter = 0;
+  const sections = (data.sections || []).map(sec => {
+    const accent = ACCENTS[(sec.number - 1 + ACCENTS.length) % ACCENTS.length];
+    let body = '';
+    if (sec.type === 'table' && sec.columns && sec.rows){
+      body = `<table class="mini-table"><thead><tr>${sec.columns.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead>
+        <tbody>${sec.rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    } else if (sec.type === 'numbered' && sec.items){
+      body = `<ol>${sec.items.map(it=>`<li><b>${esc(it.label)}</b> — ${esc(it.text)}</li>`).join('')}</ol>`;
+    } else if (sec.type === 'diagram3' && sec.nodes){
+      const nodes = sec.nodes.slice(0,3);
+      body = `<div class="diagram3" style="--accent:${accent}">
+        <div class="node">${esc(nodes[0]||'')}</div><span class="arrow">↔</span>
+        <div class="node">${esc(nodes[1]||'')}</div><span class="arrow">↔</span>
+        <div class="node">${esc(nodes[2]||'')}</div>
+      </div>
+      <ul>${(sec.notes||[]).map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`;
+    } else {
+      body = `<ul>${(sec.bullets||[]).map(b=>`<li>${esc(b)}</li>`).join('')}</ul>`;
+    }
+    const icon = (sec.type === 'bullets') ? `<span style="float:right; margin-left:6px;">${iconSvg(iconCounter++, 'icon-sm')}</span>` : '';
+    return `<div class="section-box" style="--accent:${accent}">
+      <h2><span class="num">${esc(sec.number)}</span> ${esc(sec.title)} ${icon}</h2>
+      ${body}
+    </div>`;
+  }).join('');
+  return `<div class="sheet">${renderHeader(data)}<div class="sections-wrap">${sections}</div></div>`;
+}
+
+function renderTable(data){
+  const cols = data.columns || ['Entity (Period)','Chronology','Major Works & Achievements','Other Important Points'];
+  const rows = (data.rows || []).map((r,i) => {
+    const color = ACCENTS[i % ACCENTS.length];
+    return `<tr>
+      <td style="--rowcolor:${color}">
+        <div class="row-name"><span class="num">${i+1}</span><span class="rname">${esc(r.name)}</span></div>
+        <div class="row-period">${esc(r.period)}</div>
+      </td>
+      <td><ul>${(r.chronology||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></td>
+      <td><ul>${(r.works||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></td>
+      <td><ul>${(r.other||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>${iconSvg(i,'icon-sm')}</td>
+    </tr>`;
+  }).join('');
+
+  const sidebarItems = (data.sidebar && data.sidebar.items) ? data.sidebar.items : [];
+  const sidebar = `<div class="sidebar-box">
+    <h2>${esc(data.sidebar ? data.sidebar.title : 'Important Contributions')}</h2>
+    <ul>${sidebarItems.map(it=>`<li>${esc(it)}</li>`).join('')}</ul>
+  </div>`;
+
+  const tl = (data.timeline || []).map((t,i) => `
+    <div class="tl-item"><div class="circ">${i+1}</div><div class="lbl">${esc(t.label)}</div><div class="per">${esc(t.period)}</div></div>
+    ${i < data.timeline.length - 1 ? '<span class="tl-arrow">➜</span>' : ''}
+  `).join('');
+  const timeline = `<div class="timeline-box">
+    <div class="tl-title">Summary Timeline</div>
+    <div class="tl-row">${tl}</div>
+  </div>`;
+
+  return `<div class="sheet">
+    ${renderHeader(data)}
+    <div class="table-page">
+      <table class="king-table"><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead>
+        <tbody>${rows}</tbody></table>
+      ${sidebar}
+      ${timeline}
+    </div>
+  </div>`;
+}
+
+async function callBackend(topic, context, template){
+  const response = await fetch('/api/generate-notes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ topic, context, template })
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.detail || data.error || 'Request failed');
+  return data;
+}
+
+genBtn.addEventListener('click', async () => {
+  const topic = document.getElementById('topicInput').value.trim();
+  const context = document.getElementById('contextInput').value.trim();
+  if(!topic){ statusEl.textContent = 'Please enter a topic first.'; return; }
+  genBtn.disabled = true;
+  exportBtn.disabled = true;
+  statusEl.textContent = 'Generating "' + topic + '"...';
+  pageWrap.innerHTML = '<div class="empty">Working on it…</div>';
+  try{
+    const data = await callBackend(topic, context, currentTpl);
+    pageWrap.innerHTML = (data.template === 'table') ? renderTable(data) : renderNotebook(data);
+    exportBtn.disabled = false;
+    statusEl.textContent = 'Done. You can regenerate or download as an image.';
+  }catch(err){
+    console.error(err);
+    statusEl.textContent = 'Something went wrong: ' + err.message;
+    pageWrap.innerHTML = '<div class="empty">Generation failed — try again.</div>';
+  }
+  genBtn.disabled = false;
+});
+
+exportBtn.addEventListener('click', async () => {
+  statusEl.textContent = 'Rendering image...';
+  const sheet = document.querySelector('.sheet');
+  const DESKTOP_WIDTH = 1400;
+  try {
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    const canvas = await html2canvas(sheet, {
+      backgroundColor: '#fffdf8',
+      scale: 2,
+      windowWidth: DESKTOP_WIDTH,
+      width: DESKTOP_WIDTH
+    });
+    const link = document.createElement('a');
+    link.download = 'complete-notes.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    statusEl.textContent = 'Image downloaded.';
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = 'Could not render image: ' + err.message;
+  }
+});
+</script>
+</body>
+</html>
