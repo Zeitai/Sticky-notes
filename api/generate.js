@@ -43,8 +43,9 @@ Keep each bullet under 14 words. Keep titles under 4 words. Exactly ${count} not
       body: JSON.stringify({
         model: 'openai/gpt-oss-20b', // lighter model, more free-tier headroom than 120b
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 1800,
-        temperature: 0.7
+        max_tokens: 3000,
+        temperature: 0.6,
+        response_format: { type: 'json_object' }
       })
     });
     const data = await r.json();
@@ -92,10 +93,26 @@ Keep each bullet under 14 words. Keep titles under 4 words. Exactly ${count} not
       rawText = data.choices[0].message.content;
     }
 
-    const clean = rawText.replace(/```json|```/g, '').trim();
-    const jsonMatch = clean.match(/\{[\s\S]*\}/);
-    const jsonText = jsonMatch ? jsonMatch[0] : clean;
-    const parsed = JSON.parse(jsonText);
+    function tryParse(text) {
+      const clean = text.replace(/```json|```/g, '').trim();
+      const jsonMatch = clean.match(/\{[\s\S]*\}/);
+      const jsonText = jsonMatch ? jsonMatch[0] : clean;
+      return JSON.parse(jsonText);
+    }
+
+    let parsed;
+    try {
+      parsed = tryParse(rawText);
+    } catch (parseErr) {
+      // One retry: the model occasionally clips output mid-array. Ask again fresh.
+      if (provider !== 'huggingface') {
+        const retryData = await callGroq();
+        parsed = tryParse(retryData.choices[0].message.content);
+      } else {
+        throw parseErr;
+      }
+    }
+
     return res.status(200).json(parsed);
   } catch (err) {
     console.error(err);
