@@ -43,6 +43,7 @@ Rules:
 - Use "type":"numbered" for a section listing named entities each with a short description.
 - All other sections use "type":"bullets".
 - Keep bullets/notes under 16 words each. Keep table cell text under 12 words.
+- Keep the ENTIRE response compact and within budget — do not pad content or add commentary.
 - Output valid JSON only, no trailing commentary.`;
 
   const tablePrompt = `Create a "chronology / master table" style complete-notes page on the topic: "${topic}", laid out like a big reference table of the topic's main entities in order (e.g. rulers, events, stages, eras — pick whichever fits "${topic}") plus a short sidebar of overall key contributions and a bottom summary timeline.
@@ -66,10 +67,17 @@ Rules:
 - "timeline" should have exactly one entry per row, same order, short label + short period.
 - sidebar.items should have 5 to 8 short points, general takeaways about the whole topic (not entity-specific).
 - Keep each bullet under 14 words.
+- Keep the ENTIRE response compact and within budget — do not pad content or add commentary.
 - Output valid JSON only, no trailing commentary.`;
 
   const prompt = tpl === 'table' ? tablePrompt : notebookPrompt;
   const provider = process.env.PROVIDER || 'groq';
+
+  // This schema is considerably more complex than the sticky-notes endpoint
+  // (nested section types, tables-of-arrays, diagrams), so it needs more
+  // headroom to avoid truncating mid-object. 4500 gives real margin over the
+  // previous flat 3500 for an 8-14 row/section response.
+  const MAX_TOKENS = 4500;
 
   async function callGroq(retriesLeft = 2) {
     const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -81,8 +89,13 @@ Rules:
       body: JSON.stringify({
         model: 'openai/gpt-oss-20b',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 3500,
-        temperature: 0.6
+        max_tokens: MAX_TOKENS,
+        temperature: 0.6,
+        // Constrains Groq to emit a single valid JSON object at the API
+        // level — this schema has nested types (table/diagram3/numbered)
+        // which give a freeform model more ways to go off-format, so this
+        // matters more here than on simpler endpoints.
+        response_format: { type: 'json_object' }
       })
     });
     const data = await r.json();
@@ -107,6 +120,7 @@ Rules:
 
   try {
     let rawText;
+    let finishReason;
 
     if (provider === 'huggingface') {
       const r = await fetch('https://router.huggingface.co/v1/chat/completions', {
@@ -118,15 +132,27 @@ Rules:
         body: JSON.stringify({
           model: 'meta-llama/Llama-3.1-8B-Instruct:together',
           messages: [{ role: 'user', content: prompt }],
-          max_tokens: 3500
+          max_tokens: MAX_TOKENS
         })
       });
       const data = await r.json();
       if (!r.ok) throw new Error(JSON.stringify(data));
       rawText = data.choices[0].message.content;
+      finishReason = data.choices[0].finish_reason;
     } else {
       const data = await callGroq();
       rawText = data.choices[0].message.content;
+      finishReason = data.choices[0].finish_reason;
+    }
+
+    // If the model ran out of tokens mid-response, the JSON is guaranteed to
+    // be incomplete — surface a clear, specific error instead of the vague
+    // "invalid JSON" message, so it's obvious what actually happened.
+    if (finishReason === 'length') {
+      console.error('Model output was truncated (finish_reason=length). Raw text:', rawText);
+      const err = new Error('The notes were cut off before they finished generating — please hit Generate again.');
+      err.friendly = true;
+      throw err;
     }
 
     const clean = rawText.replace(/```json|```/g, '').trim();
@@ -146,6 +172,19 @@ Rules:
         throw err;
       }
     }
+
+    // Guard against a parsed-but-malformed shape so the frontend doesn't
+    // crash trying to render undefined sections/rows.
+    const shapeOk = tpl === 'table'
+      ? Array.isArray(parsed?.rows) && parsed.rows.length > 0
+      : Array.isArray(parsed?.sections) && parsed.sections.length > 0;
+    if (!parsed || !shapeOk) {
+      console.error('Parsed JSON missing expected content for template', tpl, ':', parsed);
+      const err = new Error('The AI\'s response was missing content — please hit Generate again.');
+      err.friendly = true;
+      throw err;
+    }
+
     parsed.template = tpl;
     return res.status(200).json(parsed);
   } catch (err) {
