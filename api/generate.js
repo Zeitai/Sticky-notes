@@ -44,7 +44,7 @@ Keep each bullet under 14 words. Keep titles under 4 words. Exactly ${count} not
         model: 'openai/gpt-oss-20b', // lighter model, more free-tier headroom than 120b
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 3000,
-        temperature: 0.6,
+        temperature: 0.6
       })
     });
     const data = await r.json();
