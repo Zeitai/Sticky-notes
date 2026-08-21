@@ -45,7 +45,6 @@ Keep each bullet under 14 words. Keep titles under 4 words. Exactly ${count} not
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 3000,
         temperature: 0.6,
-        response_format: { type: 'json_object' }
       })
     });
     const data = await r.json();
