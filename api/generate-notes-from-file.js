@@ -16,15 +16,14 @@
 import { jsonrepair } from 'jsonrepair';
 import { PDFParse } from 'pdf-parse';
 
-// NOTE ON MODEL NAMES: Groq's model lineup changes over time. The text
-// model below matches the one already used in generate-notes.js. The vision
-// model is my best guess as of early 2026 for a vision-capable Groq model —
-// double check the current name in your Groq console
-// (https://console.groq.com/docs/models) before relying on this in
-// production, and update GROQ_VISION_MODEL below (or via env var) if it's
-// been renamed or retired.
+// Confirmed against Groq's own docs (console.groq.com/docs/vision) as of
+// this writing: qwen/qwen3.6-27b is a 27B multimodal (vision+text) model
+// with JSON mode support, up to 5 images/request, 20MB max image size.
+// Groq's lineup changes over time — if this stops working, check
+// console.groq.com/docs/vision for the current model list and set
+// GROQ_VISION_MODEL to override without a code change.
 const TEXT_MODEL = 'openai/gpt-oss-20b';
-const VISION_MODEL = process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
+const VISION_MODEL = process.env.GROQ_VISION_MODEL || 'qwen/qwen3.6-27b';
 
 // Vercel serverless functions have a request body size ceiling (4.5MB on
 // Hobby plans). Base64 inflates file size by ~37%, so keep the *raw* file
@@ -149,10 +148,9 @@ async function callGroqText(prompt, maxTokens, retriesLeft = 2) {
   return data;
 }
 
-// Vision call does NOT use response_format:"json_object" — not every
-// vision-capable model on Groq supports strict JSON mode combined with
-// image input, so we rely on prompt instructions + the same
-// parse/repair/retry pipeline used everywhere else.
+// qwen/qwen3.6-27b supports JSON mode alongside image input, so we use the
+// same strict response_format here as the text calls — this makes output
+// far less likely to need the jsonrepair fallback below.
 async function callGroqVision(prompt, dataUrl, maxTokens, retriesLeft = 2) {
   const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
@@ -170,7 +168,8 @@ async function callGroqVision(prompt, dataUrl, maxTokens, retriesLeft = 2) {
         ]
       }],
       max_tokens: maxTokens,
-      temperature: 0.5
+      temperature: 0.5,
+      response_format: { type: 'json_object' }
     })
   });
   const data = await r.json();
@@ -181,6 +180,9 @@ async function callGroqVision(prompt, dataUrl, maxTokens, retriesLeft = 2) {
       const waitMs = match ? Math.ceil(parseFloat(match[1]) * 1000) + 300 : 2500;
       await new Promise((resolve) => setTimeout(resolve, waitMs));
       return callGroqVision(prompt, dataUrl, maxTokens, retriesLeft - 1);
+    }
+    if (code === 'json_validate_failed' && data?.error?.failed_generation) {
+      return { choices: [{ message: { content: data.error.failed_generation }, finish_reason: 'stop' }] };
     }
     throw new Error(data?.error?.message || 'Groq vision request failed');
   }
