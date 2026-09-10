@@ -5,6 +5,9 @@
     },
     "api/generate-notes.js": {
       "maxDuration": 30
+    },
+    "api/generate-notes-from-file.js": {
+      "maxDuration": 60
     }
   }
 }

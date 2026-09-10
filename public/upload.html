@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Complete Notes Generator</title>
+<title>Notes From Image/PDF</title>
 <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
@@ -126,6 +126,18 @@
   .tl-item .lbl{ margin-top:4px; font-weight:700; }
   .tl-item .per{ font-size:0.7rem; color:#888; font-family:sans-serif; }
   .tl-arrow{ color:#aaa; padding:0 2px; }
+
+  .dropzone{
+    border:2px dashed #ccc; border-radius:12px; padding:26px 20px; text-align:center;
+    font-family:sans-serif; color:#888; cursor:pointer; transition:border-color .15s, background .15s;
+    background:#fdfcf9;
+  }
+  .dropzone.drag{ border-color:#2b2b2b; background:#fdf9ee; color:#2b2b2b; }
+  .dropzone.has-file{ border-style:solid; border-color:#3c8f4c; background:#f5faf6; color:#2b2b2b; }
+  .dropzone strong{ display:block; font-size:0.95rem; margin-bottom:4px; }
+  .dropzone span.hint{ display:block; font-size:0.78rem; color:#aaa; margin-top:6px; }
+  .dropzone .filename{ font-weight:700; word-break:break-all; }
+  .file-clear{ background:none; border:none; color:#c0392b; font-family:sans-serif; font-size:0.78rem; cursor:pointer; padding:4px 0 0 0; text-decoration:underline; }
 </style>
 </head>
 <body>
@@ -139,21 +151,26 @@
 
   <nav class="site-nav">
     <a href="/">📌 Sticky Notes</a>
-    <a href="/notes.html" class="active">📝 Complete Notes</a>
-    <a href="/upload.html">📄 From Image/PDF</a>
+    <a href="/notes.html">📝 Complete Notes</a>
+    <a href="/upload.html" class="active">📄 From Image/PDF</a>
   </nav>
 
   <div class="controls">
-    <h1>📝 Complete Notes Generator</h1>
-    <p class="sub">Type a chapter or topic and get a full one-page revision sheet — pick the layout below.</p>
+    <h1>📄 Notes From Image / PDF</h1>
+    <p class="sub">Upload a textbook page, slide, or PDF (a photo of handwritten notes works too) and get a full one-page revision sheet — pick the layout below.</p>
     <div class="row">
-      <div class="field">
-        <label>Chapter / Topic</label>
-        <input type="text" id="topicInput" placeholder="e.g. The French Revolution, Mughal Empire..." value="Pala Dynasty of Bengal">
+      <div class="field" style="flex:2; min-width:280px;">
+        <label>Image or PDF</label>
+        <input type="file" id="fileInput" accept="image/*,application/pdf" style="display:none;">
+        <div class="dropzone" id="dropzone">
+          <strong>Click to choose a file, or drag it here</strong>
+          <span>JPG, PNG, or PDF — up to ~4MB</span>
+        </div>
+        <button type="button" class="file-clear" id="clearFileBtn" style="display:none;">Remove file</button>
       </div>
       <div class="field">
         <label>Exam / Perspective <span style="text-transform:none; color:#aaa;">(optional)</span></label>
-        <input type="text" id="contextInput" placeholder="e.g. UGC NET JRF, UPSC..." value="UGC NET JRF">
+        <input type="text" id="contextInput" placeholder="e.g. UGC NET JRF, UPSC...">
       </div>
     </div>
     <div class="row" style="margin-top:12px;">
@@ -176,7 +193,7 @@
   </div>
 
   <div class="page-wrap" id="pageWrap">
-    <div class="empty">Enter a topic above, pick a layout, and hit Generate.</div>
+    <div class="empty">Upload an image or PDF above, pick a layout, and hit Generate.</div>
   </div>
 
 <script>
@@ -185,6 +202,49 @@ const exportBtn = document.getElementById('exportBtn');
 const pageWrap = document.getElementById('pageWrap');
 const statusEl = document.getElementById('status');
 let currentTpl = 'notebook';
+
+const MAX_FILE_BYTES = 4 * 1024 * 1024; // keep in sync with api/generate-notes-from-file.js
+const fileInput = document.getElementById('fileInput');
+const dropzone = document.getElementById('dropzone');
+const clearFileBtn = document.getElementById('clearFileBtn');
+let selectedFile = null;
+
+function showDropzoneFile(file){
+  dropzone.classList.add('has-file');
+  dropzone.innerHTML = `<strong class="filename">📎 ${file.name}</strong><span class="hint">${(file.size/1024/1024).toFixed(2)} MB — click to change</span>`;
+  clearFileBtn.style.display = 'inline-block';
+}
+function resetDropzone(){
+  selectedFile = null;
+  fileInput.value = '';
+  dropzone.classList.remove('has-file');
+  dropzone.innerHTML = `<strong>Click to choose a file, or drag it here</strong><span class="hint">JPG, PNG, or PDF — up to ~4MB</span>`;
+  clearFileBtn.style.display = 'none';
+}
+function acceptFile(file){
+  if (!file) return;
+  const okType = file.type.startsWith('image/') || file.type === 'application/pdf';
+  if (!okType){ statusEl.textContent = 'Please choose an image or PDF file.'; return; }
+  if (file.size > MAX_FILE_BYTES){ statusEl.textContent = `File too large — please keep it under ${Math.round(MAX_FILE_BYTES/1024/1024)}MB.`; return; }
+  selectedFile = file;
+  statusEl.textContent = '';
+  showDropzoneFile(file);
+}
+dropzone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => acceptFile(e.target.files[0]));
+clearFileBtn.addEventListener('click', (e) => { e.stopPropagation(); resetDropzone(); });
+['dragenter','dragover'].forEach(evt => dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('drag'); }));
+['dragleave','drop'].forEach(evt => dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('drag'); }));
+dropzone.addEventListener('drop', (e) => { if (e.dataTransfer.files[0]) acceptFile(e.dataTransfer.files[0]); });
+
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]); // strip data: prefix
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 document.querySelectorAll('.tpl-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -301,11 +361,11 @@ function renderTable(data){
   </div>`;
 }
 
-async function callBackend(topic, context, template){
-  const response = await fetch('/api/generate-notes', {
+async function callBackend(fileBase64, mimeType, context, template){
+  const response = await fetch('/api/generate-notes-from-file', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ topic, context, template })
+    body: JSON.stringify({ fileBase64, mimeType, context, template })
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data.detail || data.error || 'Request failed');
@@ -313,15 +373,15 @@ async function callBackend(topic, context, template){
 }
 
 genBtn.addEventListener('click', async () => {
-  const topic = document.getElementById('topicInput').value.trim();
   const context = document.getElementById('contextInput').value.trim();
-  if(!topic){ statusEl.textContent = 'Please enter a topic first.'; return; }
+  if(!selectedFile){ statusEl.textContent = 'Please choose an image or PDF first.'; return; }
   genBtn.disabled = true;
   exportBtn.disabled = true;
-  statusEl.textContent = 'Generating "' + topic + '"...';
-  pageWrap.innerHTML = '<div class="empty">Working on it…</div>';
+  statusEl.textContent = 'Reading "' + selectedFile.name + '" and generating notes...';
+  pageWrap.innerHTML = '<div class="empty">Working on it… (images/PDFs can take a bit longer)</div>';
   try{
-    const data = await callBackend(topic, context, currentTpl);
+    const fileBase64 = await fileToBase64(selectedFile);
+    const data = await callBackend(fileBase64, selectedFile.type, context, currentTpl);
     pageWrap.innerHTML = (data.template === 'table') ? renderTable(data) : renderNotebook(data);
     exportBtn.disabled = false;
     statusEl.textContent = 'Done. You can regenerate or download as an image.';
